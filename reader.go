@@ -148,7 +148,7 @@ func decode(buf *bytes.Buffer, strict bool) (Playlist, ListType, error) {
 	wv := new(WV)
 
 	master = NewMasterPlaylist()
-	media, err = NewMediaPlaylist(8, 1024) // TODO make it autoextendable
+	media, err = NewMediaPlaylist(8, 1024*4) // TODO make it autoextendable
 	if err != nil {
 		return nil, 0, errors.New(fmt.Sprintf("Create media playlist failed: %s", err))
 	}
