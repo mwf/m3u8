@@ -150,7 +150,7 @@ func decode(buf *bytes.Buffer, strict bool) (Playlist, ListType, error) {
 	master = NewMasterPlaylist()
 	media, err = NewMediaPlaylist(8, 1024*4) // TODO make it autoextendable
 	if err != nil {
-		return nil, 0, errors.New(fmt.Sprintf("Create media playlist failed: %s", err))
+		return nil, 0, fmt.Errorf("Create media playlist failed: %s", err)
 	}
 
 	for !eof {
@@ -375,8 +375,19 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 		}
 	case strings.HasPrefix(line, "#EXT-X-PLAYLIST-TYPE:"):
 		state.listType = MEDIA
-		if _, err = fmt.Sscanf(line, "#EXT-X-PLAYLIST-TYPE:%s", &p.MediaType); strict && err != nil {
-			return err
+		var playlistType string
+		_, err = fmt.Sscanf(line, "#EXT-X-PLAYLIST-TYPE:%s", &playlistType)
+		if err != nil {
+			if strict {
+				return err
+			}
+		} else {
+			switch playlistType {
+			case "EVENT":
+				p.MediaType = EVENT
+			case "VOD":
+				p.MediaType = VOD
+			}
 		}
 	case strings.HasPrefix(line, "#EXT-X-KEY:"):
 		state.listType = MEDIA
@@ -420,11 +431,11 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 		state.listType = MEDIA
 		params := strings.SplitN(line[17:], "@", 2)
 		if state.limit, err = strconv.ParseInt(params[0], 10, 64); strict && err != nil {
-			return errors.New(fmt.Sprintf("Byterange sub-range length value parsing error: %s", err))
+			return fmt.Errorf("Byterange sub-range length value parsing error: %s", err)
 		}
 		if len(params) > 1 {
 			if state.offset, err = strconv.ParseInt(params[1], 10, 64); strict && err != nil {
-				return errors.New(fmt.Sprintf("Byterange sub-range offset value parsing error: %s", err))
+				return fmt.Errorf("Byterange sub-range offset value parsing error: %s", err)
 			}
 		}
 	case !state.tagInf && strings.HasPrefix(line, "#EXTINF:"):
@@ -432,7 +443,7 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 		state.listType = MEDIA
 		params := strings.SplitN(line[8:], ",", 2)
 		if state.duration, err = strconv.ParseFloat(params[0], 64); strict && err != nil {
-			return errors.New(fmt.Sprintf("Duration parsing error: %s", err))
+			return fmt.Errorf("Duration parsing error: %s", err)
 		}
 		title = params[1]
 	case !state.tagDiscontinuity && strings.HasPrefix(line, "#EXT-X-DISCONTINUITY"):
