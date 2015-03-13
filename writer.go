@@ -4,7 +4,7 @@ package m3u8
  Part of M3U8 parser & generator library.
  This file defines functions related to playlist generation.
 
- Copyleft 2013-2014 Alexander I.Grafov aka Axel <grafov@gmail.com>
+ Copyleft 2013-2015 Alexander I.Grafov aka Axel <grafov@gmail.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -126,40 +126,75 @@ func (p *MasterPlaylist) Encode() *bytes.Buffer {
 				p.buf.WriteRune('\n')
 			}
 		}
-		p.buf.WriteString("#EXT-X-STREAM-INF:PROGRAM-ID=")
-		p.buf.WriteString(strconv.FormatUint(uint64(pl.ProgramId), 10))
-		p.buf.WriteString(",BANDWIDTH=")
-		p.buf.WriteString(strconv.FormatUint(uint64(pl.Bandwidth), 10))
-		if pl.Codecs != "" {
-			p.buf.WriteString(",CODECS=\"")
-			p.buf.WriteString(pl.Codecs)
-			p.buf.WriteRune('"')
+		if pl.Iframe {
+			p.buf.WriteString("#EXT-X-I-FRAME-STREAM-INF:PROGRAM-ID=")
+			p.buf.WriteString(strconv.FormatUint(uint64(pl.ProgramId), 10))
+			p.buf.WriteString(",BANDWIDTH=")
+			p.buf.WriteString(strconv.FormatUint(uint64(pl.Bandwidth), 10))
+			if pl.Codecs != "" {
+				p.buf.WriteString(",CODECS=\"")
+				p.buf.WriteString(pl.Codecs)
+				p.buf.WriteRune('"')
+			}
+			if pl.Resolution != "" {
+				p.buf.WriteString(",RESOLUTION=\"")
+				p.buf.WriteString(pl.Resolution)
+				p.buf.WriteRune('"')
+			}
+			if pl.Video != "" {
+				p.buf.WriteString(",VIDEO=\"")
+				p.buf.WriteString(pl.Video)
+				p.buf.WriteRune('"')
+			}
+			if pl.URI != "" {
+				p.buf.WriteString(",URI=\"")
+				p.buf.WriteString(pl.URI)
+				p.buf.WriteRune('"')
+			}
+			p.buf.WriteRune('\n')
+		} else {
+			p.buf.WriteString("#EXT-X-STREAM-INF:PROGRAM-ID=")
+			p.buf.WriteString(strconv.FormatUint(uint64(pl.ProgramId), 10))
+			p.buf.WriteString(",BANDWIDTH=")
+			p.buf.WriteString(strconv.FormatUint(uint64(pl.Bandwidth), 10))
+			if pl.Codecs != "" {
+				p.buf.WriteString(",CODECS=\"")
+				p.buf.WriteString(pl.Codecs)
+				p.buf.WriteRune('"')
+			}
+			if pl.Resolution != "" {
+				p.buf.WriteString(",RESOLUTION=\"")
+				p.buf.WriteString(pl.Resolution)
+				p.buf.WriteRune('"')
+			}
+			if pl.Audio != "" {
+				p.buf.WriteString(",AUDIO=\"")
+				p.buf.WriteString(pl.Video)
+				p.buf.WriteRune('"')
+			}
+			if pl.Video != "" {
+				p.buf.WriteString(",VIDEO=\"")
+				p.buf.WriteString(pl.Video)
+				p.buf.WriteRune('"')
+			}
+			p.buf.WriteRune('\n')
+			p.buf.WriteString(pl.URI)
+			if p.Args != "" {
+				p.buf.WriteRune('?')
+				p.buf.WriteString(p.Args)
+			}
+			p.buf.WriteRune('\n')
 		}
-		if pl.Resolution != "" {
-			p.buf.WriteString(",RESOLUTION=\"")
-			p.buf.WriteString(pl.Resolution)
-			p.buf.WriteRune('"')
-		}
-		if pl.Audio != "" {
-			p.buf.WriteString(",AUDIO=\"")
-			p.buf.WriteString(pl.Video)
-			p.buf.WriteRune('"')
-		}
-		if pl.Video != "" {
-			p.buf.WriteString(",VIDEO=\"")
-			p.buf.WriteString(pl.Video)
-			p.buf.WriteRune('"')
-		}
-		p.buf.WriteRune('\n')
-		p.buf.WriteString(pl.URI)
-		if p.Args != "" {
-			p.buf.WriteRune('?')
-			p.buf.WriteString(p.Args)
-		}
-		p.buf.WriteRune('\n')
 	}
 
 	return &p.buf
+}
+
+// For compatibility with Stringer interface
+// For example fmt.Printf("%s", sampleMediaList) will encode
+// playist and print its string representation.
+func (p *MasterPlaylist) String() string {
+	return p.Encode().String()
 }
 
 // Creates new media playlist structure.
@@ -248,11 +283,25 @@ func (p *MediaPlaylist) Encode() *bytes.Buffer {
 		p.buf.WriteString("#EXT-X-KEY:")
 		p.buf.WriteString("METHOD=")
 		p.buf.WriteString(p.Key.Method)
-		p.buf.WriteString(",URI=")
+		p.buf.WriteString(",URI=\"")
 		p.buf.WriteString(p.Key.URI)
+		p.buf.WriteRune('"')
 		if p.Key.IV != "" {
 			p.buf.WriteString(",IV=")
 			p.buf.WriteString(p.Key.IV)
+		}
+		p.buf.WriteRune('\n')
+	}
+	if p.Map != nil {
+		p.buf.WriteString("#EXT-X-MAP:")
+		p.buf.WriteString("URI=\"")
+		p.buf.WriteString(p.Map.URI)
+		p.buf.WriteRune('"')
+		if p.Map.Limit > 0 {
+			p.buf.WriteString(",BYTERANGE=")
+			p.buf.WriteString(strconv.FormatInt(p.Map.Limit, 10))
+			p.buf.WriteRune('@')
+			p.buf.WriteString(strconv.FormatInt(p.Map.Offset, 10))
 		}
 		p.buf.WriteRune('\n')
 	}
@@ -272,6 +321,9 @@ func (p *MediaPlaylist) Encode() *bytes.Buffer {
 	p.buf.WriteString("#EXT-X-TARGETDURATION:")
 	p.buf.WriteString(strconv.FormatInt(int64(math.Ceil(p.TargetDuration)), 10)) // due section 3.4.2 of M3U8 specs EXT-X-TARGETDURATION must be integer
 	p.buf.WriteRune('\n')
+	if p.Iframe {
+		p.buf.WriteString("#EXT-X-I-FRAMES-ONLY\n")
+	}
 	// Widevine tags
 	if p.WV != nil {
 		if p.WV.AudioChannels != 0 {
@@ -357,8 +409,9 @@ func (p *MediaPlaylist) Encode() *bytes.Buffer {
 			p.buf.WriteString("#EXT-X-KEY:")
 			p.buf.WriteString("METHOD=")
 			p.buf.WriteString(seg.Key.Method)
-			p.buf.WriteString(",URI=")
+			p.buf.WriteString(",URI=\"")
 			p.buf.WriteString(seg.Key.URI)
+			p.buf.WriteRune('"')
 			if seg.Key.IV != "" {
 				p.buf.WriteString(",IV=")
 				p.buf.WriteString(seg.Key.IV)
@@ -382,11 +435,11 @@ func (p *MediaPlaylist) Encode() *bytes.Buffer {
 		}
 		p.buf.WriteString("#EXTINF:")
 		if p.durationAsInt {
-			// Wowza Mediaserver and some others prefer floats.
-			p.buf.WriteString(strconv.FormatFloat(seg.Duration, 'f', 3, 32))
-		} else {
 			// Old Android players has problems with non integer Duration.
 			p.buf.WriteString(strconv.FormatInt(int64(math.Ceil(seg.Duration)), 10))
+		} else {
+			// Wowza Mediaserver and some others prefer floats.
+			p.buf.WriteString(strconv.FormatFloat(seg.Duration, 'f', 3, 32))
 		}
 		p.buf.WriteRune(',')
 		p.buf.WriteString(seg.Title)
@@ -404,6 +457,13 @@ func (p *MediaPlaylist) Encode() *bytes.Buffer {
 	return &p.buf
 }
 
+// For compatibility with Stringer interface
+// For example fmt.Printf("%s", sampleMediaList) will encode
+// playist and print its string representation.
+func (p *MediaPlaylist) String() string {
+	return p.Encode().String()
+}
+
 // TargetDuration will be int on Encode
 func (p *MediaPlaylist) DurationAsInt(yes bool) {
 	if yes {
@@ -411,6 +471,11 @@ func (p *MediaPlaylist) DurationAsInt(yes bool) {
 		version(&p.ver, 3)
 	}
 	p.durationAsInt = yes
+}
+
+// Count tells us the number of items that are currently in the media playlist
+func (p *MediaPlaylist) Count() (uint) {
+	return p.count
 }
 
 // Close sliding playlist and make them fixed.
@@ -421,10 +486,27 @@ func (p *MediaPlaylist) Close() {
 	p.Closed = true
 }
 
-// Set encryption key appeared once in header of the playlist (pointer to MediaPlaylist.Key). It useful when keys not changed during playback.
+// Set encryption key appeared once in header of the playlist (pointer to MediaPlaylist.Key).
+// It useful when keys not changed during playback.
+// Set tag for the whole list.
 func (p *MediaPlaylist) SetDefaultKey(method, uri, iv, keyformat, keyformatversions string) {
 	version(&p.ver, 5) // due section 7
 	p.Key = &Key{method, uri, iv, keyformat, keyformatversions}
+}
+
+// Set map appeared once in header of the playlist (pointer to MediaPlaylist.Key).
+// It useful when map not changed during playback.
+// Set tag for the whole list.
+func (p *MediaPlaylist) SetDefaultMap(uri string, limit, offset int64) {
+	version(&p.ver, 5) // due section 4
+	p.Map = &Map{uri, limit, offset}
+}
+
+// Mark medialist as consists of only I-frames (Intra frames).
+// Set tag for the whole list.
+func (p *MediaPlaylist) SetIframeOnly() {
+	version(&p.ver, 4) // due section 4.3.3
+	p.Iframe = true
 }
 
 // Set encryption key for the current segment of media playlist (pointer to Segment.Key)
@@ -434,6 +516,16 @@ func (p *MediaPlaylist) SetKey(method, uri, iv, keyformat, keyformatversions str
 	}
 	version(&p.ver, 5) // due section 7
 	p.Segments[(p.tail-1)%p.capacity].Key = &Key{method, uri, iv, keyformat, keyformatversions}
+	return nil
+}
+
+// Set encryption key for the current segment of media playlist (pointer to Segment.Key)
+func (p *MediaPlaylist) SetMap(uri string, limit, offset int64) error {
+	if p.count == 0 {
+		return errors.New("playlist is empty")
+	}
+	version(&p.ver, 5) // due section 4
+	p.Segments[(p.tail-1)%p.capacity].Map = &Map{uri, limit, offset}
 	return nil
 }
 

@@ -1,7 +1,7 @@
 /*
  Package m3u8. Playlist generation tests.
 
- Copyleft 2013-2014 Alexander I.Grafov aka Axel <grafov@gmail.com>
+ Copyleft 2013-2015 Alexander I.Grafov aka Axel <grafov@gmail.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -15,6 +15,8 @@
 
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ ॐ तारे तुत्तारे तुरे स्व
 */
 package m3u8
 
@@ -166,6 +168,24 @@ func TestSetKeyForMediaPlaylist(t *testing.T) {
 	e = p.SetKey("AES-128", "https://example.com", "iv", "format", "vers")
 	if e != nil {
 		t.Errorf("Set key to a media playlist failed: %s", e)
+	}
+}
+
+// Create new media playlist
+// Add segment to media playlist
+// Set map
+func TestSetMapForMediaPlaylist(t *testing.T) {
+	p, e := NewMediaPlaylist(3, 5)
+	if e != nil {
+		t.Fatalf("Create media playlist failed: %s", e)
+	}
+	e = p.Append("test01.ts", 5.0, "")
+	if e != nil {
+		t.Errorf("Add 1st segment to a media playlist failed: %s", e)
+	}
+	e = p.SetMap("https://example.com", 1000*1024, 1024*1024)
+	if e != nil {
+		t.Errorf("Set map to a media playlist failed: %s", e)
 	}
 }
 
@@ -365,5 +385,46 @@ func TestEncodeMasterPlaylist(t *testing.T) {
 	}
 	m.Append("chunklist1.m3u8", p, VariantParams{ProgramId: 123, Bandwidth: 1500000, Resolution: "576x480"})
 	m.Append("chunklist2.m3u8", p, VariantParams{ProgramId: 123, Bandwidth: 1500000, Resolution: "576x480"})
-	//fmt.Println(m.Encode().String())
+}
+
+/******************************
+ *  Code generation examples  *
+ ******************************/
+
+// Create new media playlist
+// Add two segments to media playlist
+// Print it
+func ExampleMediaPlaylist_String() {
+	p, _ := NewMediaPlaylist(1, 2)
+	p.Append("test01.ts", 5.0, "")
+	p.Append("test02.ts", 6.0, "")
+	fmt.Printf("%s\n", p)
+	// Output:
+	// #EXTM3U
+	// #EXT-X-VERSION:3
+	// #EXT-X-MEDIA-SEQUENCE:1
+	// #EXT-X-TARGETDURATION:6
+	// #EXTINF:5.000,
+	// test01.ts
+}
+
+// Create new master playlist
+// Add media playlist
+// Encode structures to HLS
+func ExampleMasterPlaylist_String() {
+	m := NewMasterPlaylist()
+	p, _ := NewMediaPlaylist(3, 5)
+	for i := 0; i < 5; i++ {
+		p.Append(fmt.Sprintf("test%d.ts", i), 5.0, "")
+	}
+	m.Append("chunklist1.m3u8", p, VariantParams{ProgramId: 123, Bandwidth: 1500000, Resolution: "576x480"})
+	m.Append("chunklist2.m3u8", p, VariantParams{ProgramId: 123, Bandwidth: 1500000, Resolution: "576x480"})
+	fmt.Printf("%s", m)
+	// Output:
+	// #EXTM3U
+	// #EXT-X-VERSION:3
+	// #EXT-X-STREAM-INF:PROGRAM-ID=123,BANDWIDTH=1500000,RESOLUTION="576x480"
+	// chunklist1.m3u8
+	// #EXT-X-STREAM-INF:PROGRAM-ID=123,BANDWIDTH=1500000,RESOLUTION="576x480"
+	// chunklist2.m3u8
 }

@@ -4,7 +4,7 @@ package m3u8
  Part of M3U8 parser & generator library.
  This file defines functions related to playlist parsing.
 
- Copyleft 2013-2014 Alexander I.Grafov aka Axel <grafov@gmail.com>
+ Copyleft 2013-2015 Alexander I.Grafov aka Axel <grafov@gmail.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -334,11 +334,64 @@ func decodeLineOfMasterPlaylist(p *MasterPlaylist, state *decodingState, line st
 					return err
 				}
 				state.variant.Subtitles = strings.Trim(state.variant.Subtitles, "\"")
+			case strings.HasPrefix(param, "CLOSED-CAPTIONS"):
+				_, err = fmt.Sscanf(param, "CLOSED-CAPTIONS=%s", &state.variant.Captions)
+				if strict && err != nil {
+					return err
+				}
+				state.variant.Captions = strings.Trim(state.variant.Captions, "\"")
 			}
 		}
 	case state.tagStreamInf && !strings.HasPrefix(line, "#"):
 		state.tagStreamInf = false
 		state.variant.URI = line
+	case !state.tagIframeStreamInf && strings.HasPrefix(line, "#EXT-X-I-FRAME-STREAM-INF:"):
+		state.tagIframeStreamInf = true
+		state.listType = MASTER
+		state.variant = new(Variant)
+		state.variant.Iframe = true
+		if len(alternatives) > 0 {
+			state.variant.Alternatives = alternatives
+			alternatives = nil
+		}
+		p.Variants = append(p.Variants, state.variant)
+		for _, param := range strings.Split(line[26:], ",") {
+			switch {
+			case strings.HasPrefix(param, "URI"):
+				_, err = fmt.Sscanf(param, "URI=%s", &state.variant.URI)
+				if strict && err != nil {
+					return err
+				}
+			case strings.HasPrefix(param, "PROGRAM-ID"):
+				_, err = fmt.Sscanf(param, "PROGRAM-ID=%d", &state.variant.ProgramId)
+				if strict && err != nil {
+					return err
+				}
+			case strings.HasPrefix(param, "BANDWIDTH"):
+				_, err = fmt.Sscanf(param, "BANDWIDTH=%d", &state.variant.Bandwidth)
+				if strict && err != nil {
+					return err
+				}
+			case strings.HasPrefix(param, "CODECS"):
+				_, err = fmt.Sscanf(param, "CODECS=%s", &state.variant.Codecs)
+				if strict && err != nil {
+					return err
+				}
+				state.variant.Codecs = strings.Trim(state.variant.Codecs, "\"")
+			case strings.HasPrefix(param, "RESOLUTION"):
+				_, err = fmt.Sscanf(param, "RESOLUTION=%s", &state.variant.Resolution)
+				if strict && err != nil {
+					return err
+				}
+				state.variant.Resolution = strings.Trim(state.variant.Resolution, "\"")
+			case strings.HasPrefix(param, "VIDEO"):
+				_, err = fmt.Sscanf(param, "VIDEO=%s", &state.variant.Video)
+				if strict && err != nil {
+					return err
+				}
+				state.variant.Video = strings.Trim(state.variant.Video, "\"")
+			}
+		}
 	case strings.HasPrefix(line, "#"): // unknown tags treated as comments
 		return err
 	}
@@ -391,35 +444,51 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 		}
 	case strings.HasPrefix(line, "#EXT-X-KEY:"):
 		state.listType = MEDIA
-		state.key = new(Key)
+		state.xkey = new(Key)
 		for _, param := range strings.Split(line[11:], ",") {
 			if strings.HasPrefix(param, "METHOD=") {
-				if _, err = fmt.Sscanf(param, "METHOD=%s", &state.key.Method); strict && err != nil {
+				if _, err = fmt.Sscanf(param, "METHOD=%s", &state.xkey.Method); strict && err != nil {
 					return err
 				}
 			}
 			if strings.HasPrefix(param, "URI=") {
-				if _, err = fmt.Sscanf(param, "URI=%s", &state.key.URI); strict && err != nil {
+				if _, err = fmt.Sscanf(param, "URI=%s", &state.xkey.URI); strict && err != nil {
 					return err
 				}
 			}
 			if strings.HasPrefix(param, "IV=") {
-				if _, err = fmt.Sscanf(param, "IV=%s", &state.key.IV); strict && err != nil {
+				if _, err = fmt.Sscanf(param, "IV=%s", &state.xkey.IV); strict && err != nil {
 					return err
 				}
 			}
 			if strings.HasPrefix(param, "KEYFORMAT=") {
-				if _, err = fmt.Sscanf(param, "KEYFORMAT=%s", &state.key.Keyformat); strict && err != nil {
+				if _, err = fmt.Sscanf(param, "KEYFORMAT=%s", &state.xkey.Keyformat); strict && err != nil {
 					return err
 				}
 			}
 			if strings.HasPrefix(param, "KEYFORMATVERSIONS=") {
-				if _, err = fmt.Sscanf(param, "KEYFORMATVERSIONS=%s", &state.key.Keyformatversions); strict && err != nil {
+				if _, err = fmt.Sscanf(param, "KEYFORMATVERSIONS=%s", &state.xkey.Keyformatversions); strict && err != nil {
 					return err
 				}
 			}
 		}
 		state.tagKey = true
+	case strings.HasPrefix(line, "#EXT-X-MAP:"):
+		state.listType = MEDIA
+		state.xmap = new(Map)
+		for _, param := range strings.Split(line[11:], ",") {
+			if strings.HasPrefix(param, "URI=") {
+				if _, err = fmt.Sscanf(param, "URI=%s", &state.xmap.URI); strict && err != nil {
+					return err
+				}
+			}
+			if strings.HasPrefix(param, "BYTERANGE=") {
+				if _, err = fmt.Sscanf(param, "BYTERANGE=%d@%d", &state.xmap.Limit, &state.xmap.Offset); strict && err != nil {
+					return fmt.Errorf("Byterange sub-range length value parsing error: %s", err)
+				}
+			}
+		}
+		state.tagMap = true
 	case !state.tagProgramDateTime && strings.HasPrefix(line, "#EXT-X-PROGRAM-DATE-TIME:"):
 		state.tagProgramDateTime = true
 		state.listType = MEDIA
@@ -449,6 +518,9 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 	case !state.tagDiscontinuity && strings.HasPrefix(line, "#EXT-X-DISCONTINUITY"):
 		state.tagDiscontinuity = true
 		state.listType = MEDIA
+	case strings.HasPrefix(line, "#EXT-X-I-FRAMES-ONLY"):
+		state.listType = MEDIA
+		p.Iframe = true
 	case !strings.HasPrefix(line, "#"):
 		if state.tagInf {
 			p.Append(line, state.duration, title)
@@ -458,12 +530,14 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 				return err
 			}
 			state.tagRange = false
-		} else if state.tagDiscontinuity {
+		}
+		if state.tagDiscontinuity {
 			state.tagDiscontinuity = false
 			if err = p.SetDiscontinuity(); strict && err != nil {
 				return err
 			}
-		} else if state.tagProgramDateTime {
+		}
+		if state.tagProgramDateTime {
 			state.tagProgramDateTime = false
 			if err = p.SetProgramDateTime(state.programDateTime); strict && err != nil {
 				return err
@@ -471,13 +545,23 @@ func decodeLineOfMediaPlaylist(p *MediaPlaylist, wv *WV, state *decodingState, l
 		}
 		// If EXT-X-KEY appeared before reference to segment (EXTINF) then it linked to this segment
 		if state.tagKey {
-			p.Segments[(p.tail-1)%p.capacity].Key = &Key{state.key.Method, state.key.URI, state.key.IV, state.key.Keyformat, state.key.Keyformatversions}
+			p.Segments[(p.tail-1)%p.capacity].Key = &Key{state.xkey.Method, state.xkey.URI, state.xkey.IV, state.xkey.Keyformat, state.xkey.Keyformatversions}
 			// First EXT-X-KEY may appeared in the header of the playlist and linked to first segment
 			// but for convenient playlist generation it also linked as default playlist key
 			if p.Key == nil {
-				p.Key = state.key
+				p.Key = state.xkey
 			}
 			state.tagKey = false
+		}
+		// If EXT-X-MAP appeared before reference to segment (EXTINF) then it linked to this segment
+		if state.tagMap {
+			p.Segments[(p.tail-1)%p.capacity].Map = &Map{state.xmap.URI, state.xmap.Limit, state.xmap.Offset}
+			// First EXT-X-MAP may appeared in the header of the playlist and linked to first segment
+			// but for convenient playlist generation it also linked as default playlist map
+			if p.Map == nil {
+				p.Map = state.xmap
+			}
+			state.tagMap = false
 		}
 	case strings.HasPrefix(line, "#WV-AUDIO-CHANNELS"):
 		state.listType = MEDIA

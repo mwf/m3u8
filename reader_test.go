@@ -1,7 +1,7 @@
 /*
  Playlist parsing tests.
 
- Copyleft 2013-2014 Alexander I.Grafov aka Axel <grafov@gmail.com>
+ Copyleft 2013-2015 Alexander I.Grafov aka Axel <grafov@gmail.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -15,11 +15,14 @@
 
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ ॐ तारे तुत्तारे तुरे स्व
 */
 package m3u8
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -166,4 +169,32 @@ func TestDecodeMediaPlaylistWithAutodetection(t *testing.T) {
 	}
 	// TODO check other values…
 	// fmt.Println(pp.Encode().String())
+}
+
+/***************************
+ *  Code parsing examples  *
+ ***************************/
+
+// Example of parsing a playlist with EXT-X-DISCONTINIUTY tag
+// and output it with integer segment durations.
+func ExampleMediaPlaylist_DurationAsInt() {
+	f, _ := os.Open("sample-playlists/media-playlist-with-discontinuity.m3u8")
+	p, _, _ := DecodeFrom(bufio.NewReader(f), true)
+	pp := p.(*MediaPlaylist)
+	pp.DurationAsInt(true)
+	fmt.Printf("%s", pp)
+	// Output:
+	// #EXTM3U
+	// #EXT-X-VERSION:3
+	// #EXT-X-MEDIA-SEQUENCE:1
+	// #EXT-X-TARGETDURATION:10
+	// #EXTINF:10,
+	// ad0.ts
+	// #EXTINF:8,
+	// ad1.ts
+	// #EXT-X-DISCONTINUITY
+	// #EXTINF:10,
+	// movieA.ts
+	// #EXTINF:10,
+	// movieB.ts
 }

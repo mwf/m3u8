@@ -12,10 +12,12 @@
 * Planned features
 ** DONE [#A] Support EXT-X-PROGRAM-DATE-TIME
 ** DONE [#A] Support for EXT-X-PLAYLIST-TYPE												 :proto3:
-** [#A] Support for EXT-X-I-FRAMES-ONLY																	 :proto4:
-** [#A] Support for EXT-X-I-FRAME-STREAM-INF														 :proto4:
-** [#A] Support for EXT-X-MAP																						 :proto5:
-** [#A] Support for EXT-X-START																					 :proto6:
+** DONE [#A] Support for EXT-X-I-FRAMES-ONLY                         :proto4:
+** DONE [#A] Support for EXT-X-I-FRAME-STREAM-INF                    :proto4:
+** DONE [#A] Support for EXT-X-MAP                                   :proto5:
+** TODO Add samples from iOS Devs Lib
+   https://developer.apple.com/library/ios/technotes/tn2288/_index.html
+** [#A] Support for EXT-X-START                                      :proto6:
 ** [#A] Support for EXT-X-DISCONTINUITY-SEQUENCE												 :proto6:
 ** [#B] Autoexpand option for playlist buffers
 ** [#B] CR/LF protection: characters within a quoted-string MUST NOT include linefeed (0xA), carriage-return (0xD) or double quote (0x22). :draft12:validation:
@@ -34,4 +36,7 @@
 ** [#C] Add examples of playlists with #EXT-X-KEY
 ** [#C] Cover each API call with unit test
 ** [#C] Cover each tag with unit test
-** Merge media playlists
+* Planned for M3U8 utils
+** Merge media playlists                                          
+** Rename segments by mask in a playlist
+
